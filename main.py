@@ -16,23 +16,51 @@ EXPECTED_BYTES = 164
 EXPECTED_CHARS = 162  # line plus one trailing newline
 
 
+def verify(path, data):
+    """Read the written entry back and confirm it matches exactly.
+
+    Returns True only when the file on disk is byte-identical to ``data``
+    and its sha256 still matches the pinned hash; False otherwise.
+    """
+    try:
+        with open(path, "rb") as f:
+            written = f.read()
+    except OSError:
+        return False
+    if written != data:
+        return False
+    if hashlib.sha256(written).hexdigest() != EXPECTED_SHA256:
+        return False
+    return True
+
+
 def main():
     text = LINE + "\n"
     data = text.encode("utf-8")
     if not 1 <= len(text) <= 200:
-        raise SystemExit(f"entry must be 1-200 characters, got {len(text)}")
+        print(f"entry must be 1-200 characters, got {len(text)}")
+        return 1
     if not text.strip():
-        raise SystemExit("entry must not be only whitespace")
+        print("entry must not be only whitespace")
+        return 1
     if len(text) != EXPECTED_CHARS:
-        raise SystemExit(f"char count changed: {len(text)} != {EXPECTED_CHARS}")
+        print(f"char count changed: {len(text)} != {EXPECTED_CHARS}")
+        return 1
     if len(data) != EXPECTED_BYTES:
-        raise SystemExit(f"byte count changed: {len(data)} != {EXPECTED_BYTES}")
+        print(f"byte count changed: {len(data)} != {EXPECTED_BYTES}")
+        return 1
     if hashlib.sha256(data).hexdigest() != EXPECTED_SHA256:
-        raise SystemExit("output hash changed")
+        print("output hash changed")
+        return 1
     os.makedirs("/output", exist_ok=True)
     with open("/output/entry.txt", "wb") as f:
         f.write(data)
+    verified = verify("/output/entry.txt", data)
+    if not verified:
+        print("read-back verification failed")
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
